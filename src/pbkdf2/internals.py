@@ -1,86 +1,22 @@
 __version__ = "1.3"
 __all__ = ["PBKDF2", "crypt"]
 
-from struct import pack
+import hmac as HMAC
+from base64 import b64encode as _b64encode
+from binascii import b2a_hex as _b2a_hex
+from hashlib import sha1 as SHA1
 from random import randint
-import string
-import sys
+from struct import pack
 
-try:
-    # Use PyCrypto (if available).
-    from Crypto.Hash import HMAC, SHA as SHA1
-except ImportError:
-    # PyCrypto not available.  Use the Python standard library.
-    import hmac as HMAC
 
-    try:
-        from hashlib import sha1 as SHA1
-    except ImportError:
-        # hashlib not available.  Use the old sha module.
-        import sha as SHA1
+_0xffffffffL = 0xFFFFFFFF
 
-#
-# Python 2.1 thru 3.2 compatibility
-#
 
-if sys.version_info[0] == 2:
-    _0xffffffffL = long(1) << 32
-
-    def isunicode(s):
-        return isinstance(s, unicode)
-
-    def isbytes(s):
-        return isinstance(s, str)
-
-    def isinteger(n):
-        return isinstance(n, (int, long))
-
-    def b(s):
-        return s
-
-    def binxor(a, b):
-        return "".join([chr(ord(x) ^ ord(y)) for (x, y) in zip(a, b)])
-
-    def b64encode(data, chars="+/"):
-        tt = string.maketrans("+/", chars)
-        return data.encode("base64").replace("\n", "").translate(tt)
-
-    from binascii import b2a_hex
-else:
-    _0xffffffffL = 0xFFFFFFFF
-
-    def isunicode(s):
-        return isinstance(s, str)
-
-    def isbytes(s):
-        return isinstance(s, bytes)
-
-    def isinteger(n):
-        return isinstance(n, int)
-
-    def callable(obj):
-        return hasattr(obj, "__call__")
-
-    def b(s):
-        return s.encode("latin-1")
-
-    def binxor(a, b):
-        return bytes([x ^ y for (x, y) in zip(a, b)])
-
-    from base64 import b64encode as _b64encode
-
-    def b64encode(data, chars="+/"):
-        if isunicode(chars):
-            return _b64encode(data, chars.encode("utf-8")).decode("utf-8")
-        else:
-            return _b64encode(data, chars)
-
-    from binascii import b2a_hex as _b2a_hex
-
-    def b2a_hex(s):
-        return _b2a_hex(s).decode("us-ascii")
-
-    xrange = range
+def b64encode(data, chars="+/"):
+    if isinstance(chars, str):
+        return _b64encode(data, chars.encode("utf-8")).decode("utf-8")
+    else:
+        return _b64encode(data, chars)
 
 
 class PBKDF2(object):
@@ -127,7 +63,7 @@ class PBKDF2(object):
             block = self.__f(i)
             blocks.append(block)
             size += len(block)
-        buf = b("").join(blocks)
+        buf = "".encode("latin-1").join(blocks)
         retval = buf[:bytes]
         self.__buf = buf[bytes:]
         self.__blockNum = i
@@ -138,33 +74,33 @@ class PBKDF2(object):
         assert 1 <= i <= _0xffffffffL
         U = self.__prf(self.__passphrase, self.__salt + pack("!L", i))
         result = U
-        for j in xrange(2, 1 + self.__iterations):
+        for j in range(2, 1 + self.__iterations):
             U = self.__prf(self.__passphrase, U)
-            result = binxor(result, U)
+            result = bytes([x ^ y for (x, y) in zip(result, U)])
         return result
 
     def hexread(self, octets):
         """Read the specified number of octets. Return them as hexadecimal.
         Note that len(obj.hexread(n)) == 2*n.
         """
-        return b2a_hex(self.read(octets))
+        return _b2a_hex(self.read(octets)).decode("us-ascii")
 
     def _setup(self, passphrase, salt, iterations, prf):
         # Sanity checks:
 
         # passphrase and salt must be str or unicode (in the latter
         # case, we convert to UTF-8)
-        if isunicode(passphrase):
+        if isinstance(passphrase, str):
             passphrase = passphrase.encode("UTF-8")
-        elif not isbytes(passphrase):
+        elif not isinstance(passphrase, bytes):
             raise TypeError("passphrase must be str or unicode")
-        if isunicode(salt):
+        if isinstance(salt, str):
             salt = salt.encode("UTF-8")
-        elif not isbytes(salt):
+        elif not isinstance(salt, bytes):
             raise TypeError("salt must be str or unicode")
 
         # iterations must be an integer >= 1
-        if not isinteger(iterations):
+        if not isinstance(iterations, int):
             raise TypeError("iterations must be an integer")
         if iterations < 1:
             raise ValueError("iterations must be at least 1")
@@ -178,7 +114,7 @@ class PBKDF2(object):
         self.__iterations = iterations
         self.__prf = prf
         self.__blockNum = 0
-        self.__buf = b("")
+        self.__buf = "".encode("latin-1")
         self.closed = False
 
     def close(self):
@@ -205,17 +141,17 @@ def crypt(word, salt=None, iterations=None):
         salt = _makesalt()
 
     # salt must be a string or the us-ascii subset of unicode
-    if isunicode(salt):
+    if isinstance(salt, str):
         salt = salt.encode("us-ascii").decode("us-ascii")
-    elif isbytes(salt):
+    elif isinstance(salt, bytes):
         salt = salt.decode("us-ascii")
     else:
         raise TypeError("salt must be a string")
 
     # word must be a string or unicode (in the latter case, we convert to UTF-8)
-    if isunicode(word):
+    if isinstance(word, str):
         word = word.encode("UTF-8")
-    elif not isbytes(word):
+    elif not isinstance(word, bytes):
         raise TypeError("word must be a string or unicode")
 
     # Try to extract the real salt and iteration count from the salt
@@ -256,5 +192,5 @@ def _makesalt():
     """Return a 48-bit pseudorandom salt for crypt().
     This function is not suitable for generating cryptographic secrets.
     """
-    binarysalt = b("").join([pack("@H", randint(0, 0xFFFF)) for i in range(3)])
+    binarysalt = "".encode("latin-1").join([pack("@H", randint(0, 0xFFFF)) for i in range(3)])
     return b64encode(binarysalt, "./")
