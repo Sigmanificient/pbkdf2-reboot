@@ -1,7 +1,7 @@
 __version__ = "1.3"
 __all__ = ["PBKDF2", "crypt"]
 
-import hmac as HMAC
+import hmac
 from base64 import b64encode as _b64encode
 from binascii import b2a_hex as _b2a_hex
 from hashlib import sha1 as SHA1
@@ -9,7 +9,8 @@ from random import randint
 from struct import pack
 
 
-_0xffffffffL = 0xFFFFFFFF
+LIMIT = 0xFFFFFFFF
+EMPTY_bSTR = "".encode("latin-1")
 
 
 def b64encode(data, chars="+/"):
@@ -35,19 +36,19 @@ class PBKDF2(object):
     """
 
     def __init__(
-        self, passphrase, salt, iterations=1000, digestmodule=SHA1, macmodule=HMAC
+        self, passphrase, salt, iterations=1000, digest_module=SHA1, mac_module=hmac
     ):
-        self.__macmodule = macmodule
-        self.__digestmodule = digestmodule
+        self.__mac_module = mac_module
+        self.__digest_module = digest_module
         self._setup(passphrase, salt, iterations, self._pseudorandom)
 
     def _pseudorandom(self, key, msg):
         """Pseudorandom function.  e.g. HMAC-SHA1"""
-        return self.__macmodule.new(
-            key=key, msg=msg, digestmod=self.__digestmodule
+        return self.__mac_module.new(
+            key=key, msg=msg, digestmod=self.__digest_module
         ).digest()
 
-    def read(self, bytes):
+    def read(self, bytes_):
         """Read the specified number of key bytes."""
         if self.closed:
             raise ValueError("file-like object is closed")
@@ -55,23 +56,23 @@ class PBKDF2(object):
         size = len(self.__buf)
         blocks = [self.__buf]
         i = self.__blockNum
-        while size < bytes:
+        while size < bytes_:
             i += 1
-            if i > _0xffffffffL or i < 1:
+            if i > LIMIT or i < 1:
                 # We could return "" here, but
                 raise OverflowError("derived key too long")
             block = self.__f(i)
             blocks.append(block)
             size += len(block)
-        buf = "".encode("latin-1").join(blocks)
-        retval = buf[:bytes]
-        self.__buf = buf[bytes:]
+        buf = EMPTY_bSTR.join(blocks)
+        retval = buf[:bytes_]
+        self.__buf = buf[bytes_:]
         self.__blockNum = i
         return retval
 
     def __f(self, i):
         # i must fit within 32 bits
-        assert 1 <= i <= _0xffffffffL
+        assert 1 <= i <= LIMIT
         U = self.__prf(self.__passphrase, self.__salt + pack("!L", i))
         result = U
         for j in range(2, 1 + self.__iterations):
@@ -79,9 +80,9 @@ class PBKDF2(object):
             result = bytes([x ^ y for (x, y) in zip(result, U)])
         return result
 
-    def hexread(self, octets):
+    def read_hex(self, octets):
         """Read the specified number of octets. Return them as hexadecimal.
-        Note that len(obj.hexread(n)) == 2*n.
+        Note that len(obj.read_hex(n)) == 2*n.
         """
         return _b2a_hex(self.read(octets)).decode("us-ascii")
 
@@ -114,7 +115,7 @@ class PBKDF2(object):
         self.__iterations = iterations
         self.__prf = prf
         self.__blockNum = 0
-        self.__buf = "".encode("latin-1")
+        self.__buf = EMPTY_bSTR
         self.closed = False
 
     def close(self):
@@ -138,7 +139,7 @@ def crypt(word, salt=None, iterations=None):
 
     # Generate a (pseudo-)random salt if the user hasn't provided one.
     if salt is None:
-        salt = _makesalt()
+        salt = _make_salt()
 
     # salt must be a string or the us-ascii subset of unicode
     if isinstance(salt, str):
@@ -178,8 +179,8 @@ def crypt(word, salt=None, iterations=None):
         salt = "$p5k2$$" + salt
     else:
         salt = "$p5k2$%x$%s" % (iterations, salt)
-    rawhash = PBKDF2(word, salt, iterations).read(24)
-    return salt + "$" + b64encode(rawhash, "./")
+    raw_hash = PBKDF2(word, salt, iterations).read(24)
+    return salt + "$" + b64encode(raw_hash, "./")
 
 
 # Add crypt as a static method of the PBKDF2 class
@@ -188,9 +189,9 @@ def crypt(word, salt=None, iterations=None):
 PBKDF2.crypt = staticmethod(crypt)
 
 
-def _makesalt():
+def _make_salt():
     """Return a 48-bit pseudorandom salt for crypt().
     This function is not suitable for generating cryptographic secrets.
     """
-    binarysalt = "".encode("latin-1").join([pack("@H", randint(0, 0xFFFF)) for i in range(3)])
-    return b64encode(binarysalt, "./")
+    binary_salt = EMPTY_bSTR.join(pack("@H", randint(0, 0xFFFF)) for i in range(3))
+    return b64encode(binary_salt, "./")
