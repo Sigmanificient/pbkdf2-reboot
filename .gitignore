@@ -1,0 +1,25 @@
+# IDE configuration files
+.idea
+.vscode
+.vs
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Environments
+venv
+env
+
+# mypy
+.mypy_cache/
+
+# OS specific
+.DS_Store
+.directory
