@@ -9,7 +9,7 @@ from string import ascii_letters, digits
 LIMIT = 0xFFFFFFFF
 EMPTY_bSTR = "".encode("latin-1")
 
-BASE_64_ALT_CHARS = './'
+BASE_64_ALT_CHARS = "./"
 ALLOWED_CHARS = ascii_letters + digits + BASE_64_ALT_CHARS
 
 
@@ -122,14 +122,16 @@ class PBKDF2:
 
     def close(self):
         """Close the stream."""
-        if not self.closed:
-            del self.__passphrase
-            del self.__salt
-            del self.__iterations
-            del self.__prf
-            del self.__block_number
-            del self.__buffer
-            self.closed = True
+        if self.closed:
+            return
+
+        del self.__passphrase
+        del self.__salt
+        del self.__iterations
+        del self.__prf
+        del self.__block_number
+        del self.__buffer
+        self.closed = True
 
 
 def crypt(word, salt=None, iterations=None):
@@ -159,28 +161,26 @@ def crypt(word, salt=None, iterations=None):
 
     # Try to extract the real salt and iteration count from the salt
     if salt.startswith("$p5k2$"):
-        (iterations, salt, dummy) = salt.split("$")[2:5]
-        if iterations == "":
-            iterations = 400
-        else:
-            converted = int(iterations, 16)
-            if iterations != "%x" % converted:  # lowercase hex, minimum digits
-                raise ValueError("Invalid salt")
-            iterations = converted
-            if not (iterations >= 1):
-                raise ValueError("Invalid salt")
+        (s_iterations, salt, dummy) = salt.split("$")[2:5]
+
+        converted = int(s_iterations, 16)
+        if s_iterations != ("%x" % converted):  # lowercase hex, minimum digits
+            raise ValueError("Invalid salt")
+
+        iterations = converted
+
+    if iterations is None:
+        iterations = 400
+
+    if iterations < 1:
+        raise ValueError("Invalid salt")
 
     # Make sure the salt matches the allowed character set
     for ch in salt:
         if ch not in ALLOWED_CHARS:
             raise ValueError("Illegal character %r in salt" % (ch,))
 
-    if iterations is None or iterations == 400:
-        iterations = 400
-        salt = "$p5k2$$" + salt
-    else:
-        salt = "$p5k2$%x$%s" % (iterations, salt)
-
+    salt = f"$p5k2${iterations:x}${salt}"
     raw_hash = PBKDF2(word, salt, iterations).read(24)
     return salt + "$" + b64encode(raw_hash)
 
