@@ -82,6 +82,12 @@ def test_errors():
     with pytest.raises(ValueError):
         crypt('password', 'salt-')
 
+    with pytest.raises(TypeError):
+        crypt(1, 'salt')
+
+    with pytest.raises(TypeError):
+        crypt('password', 1)
+
 
 def test_no_salt():
     c = crypt("password")
