@@ -1,3 +1,4 @@
+import pytest
 from pbkdf2 import crypt, PBKDF2
 
 HEX = (
@@ -65,3 +66,39 @@ def test_class():
     assert p.read(i) == BYTES
 
 
+def test_errors():
+    with pytest.raises(TypeError):
+        _ = PBKDF2(1, "salt")
+
+    with pytest.raises(TypeError):
+        _ = PBKDF2("password0", 1)
+
+    with pytest.raises(TypeError):
+        _ = PBKDF2("password0", "salt", iterations='')
+
+    with pytest.raises(ValueError):
+        _ = PBKDF2("password0", "salt", iterations=0)
+
+    with pytest.raises(ValueError):
+        crypt('password', 'salt-')
+
+
+def test_no_salt():
+    c = crypt("password")
+    assert len(c) == 48
+    assert c.startswith('$p5k2$$')
+
+
+def test_close():
+    p = PBKDF2("password", "salt", iterations=1000)
+    p.close()
+
+    assert p.closed
+
+
+@pytest.mark.skip(reason="too long")
+def test_overflow():
+    p = PBKDF2("password", "salt", iterations=1)
+
+    with pytest.raises(OverflowError):
+        p.read(1 << 32)
