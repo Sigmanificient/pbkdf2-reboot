@@ -8,6 +8,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Coverage files
+.coverage
+
 # Distribution / packaging
 build/
 dist/
