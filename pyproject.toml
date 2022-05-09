@@ -17,6 +17,7 @@ warn_unused_configs = true
 no_implicit_reexport = true
 
 [tool.pytest.ini_options]
+addopts = "--cov=pbkdf2"
 testpaths = [
     "tests/tests.py",
 ]
