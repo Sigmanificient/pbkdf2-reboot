@@ -1,10 +1,11 @@
 import hmac
+
 from base64 import b64encode
 from binascii import b2a_hex
 from hashlib import sha1
-from random import randint
-from struct import pack
+from secrets import randbelow
 from string import ascii_letters, digits
+from struct import pack
 from typing import Callable, Any, Union, Optional
 
 LIMIT = 0xFFFFFFFF
@@ -200,8 +201,6 @@ PBKDF2.crypt = staticmethod(crypt)
 
 
 def _make_salt() -> str:
-    """Return a 48-bit pseudorandom salt for crypt().
-    This function is not suitable for generating cryptographic secrets.
-    """
-    binary_salt = EMPTY_bSTR.join(pack("@H", randint(0, 0xFFFF)) for _ in range(3))
+    """Return a 48-bit pseudorandom salt for crypt()."""
+    binary_salt = EMPTY_bSTR.join(pack("@H", randbelow(0xFFFF + 1)) for _ in range(3))
     return _base64_str(binary_salt)
