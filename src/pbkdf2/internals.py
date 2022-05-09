@@ -1,10 +1,11 @@
 import hmac
-from base64 import b64encode as _b64encode
+from base64 import b64encode
 from binascii import b2a_hex
 from hashlib import sha1
 from random import randint
 from struct import pack
 from string import ascii_letters, digits
+from typing import Callable, Any, Union, Optional
 
 LIMIT = 0xFFFFFFFF
 EMPTY_bSTR = "".encode("latin-1")
@@ -13,8 +14,11 @@ BASE_64_ALT_CHARS = "./"
 ALLOWED_CHARS = ascii_letters + digits + BASE_64_ALT_CHARS
 
 
-def b64encode(data, alt_chars=BASE_64_ALT_CHARS.encode("utf-8")):
-    return _b64encode(data, alt_chars).decode("utf-8")
+def _base64_str(
+    data: bytes, alt_chars: bytes = BASE_64_ALT_CHARS.encode("utf-8")
+) -> str:
+    """Encode bytes to a Base64 string."""
+    return b64encode(data, alt_chars).decode("utf-8")
 
 
 class PBKDF2:
@@ -36,10 +40,16 @@ class PBKDF2:
     """
 
     def __init__(
-        self, passphrase, salt, iterations=1000, digest_module=sha1, mac_module=hmac
+        self,
+        passphrase: Union[str, bytes],
+        salt: Union[str, bytes],
+        iterations: int = 1000,
+        digest_module: Callable[[], Any] = sha1,
     ):
-        self.__mac_module = mac_module
         self.__digest_module = digest_module
+        self.__block_number = 0
+        self.__buffer = EMPTY_bSTR
+        self.closed = False
 
         # Sanity checks:
 
@@ -65,15 +75,10 @@ class PBKDF2:
         self.__salt = salt
         self.__iterations = iterations
         self.__prf = self._pseudorandom
-        self.__block_number = 0
-        self.__buffer = EMPTY_bSTR
-        self.closed = False
 
-    def _pseudorandom(self, key, msg):
+    def _pseudorandom(self, key, msg) -> bytes:
         """Pseudorandom function.  e.g. HMAC-SHA1"""
-        return self.__mac_module.new(
-            key=key, msg=msg, digestmod=self.__digest_module
-        ).digest()
+        return hmac.new(key=key, msg=msg, digestmod=self.__digest_module).digest()
 
     def read(self, bytes_):
         """Read the specified number of key bytes."""
@@ -133,8 +138,14 @@ class PBKDF2:
         del self.__buffer
         self.closed = True
 
+    crypt: Callable[[Union[str, bytes], Optional[Union[str, bytes]]], str]
 
-def crypt(word, salt=None, iterations=None):
+
+def crypt(
+    word: Union[str, bytes],
+    salt: Optional[Union[str, bytes]] = None,
+    iterations: int = 400,
+) -> str:
     """PBKDF2-based unix crypt(3) replacement.
     The number of iterations specified in the salt overrides the 'iterations'
     parameter.
@@ -169,9 +180,6 @@ def crypt(word, salt=None, iterations=None):
 
         iterations = converted
 
-    if iterations is None:
-        iterations = 400
-
     if iterations < 1:
         raise ValueError("Invalid salt")
 
@@ -182,7 +190,7 @@ def crypt(word, salt=None, iterations=None):
 
     salt = f"$p5k2${iterations:x}${salt}"
     raw_hash = PBKDF2(word, salt, iterations).read(24)
-    return salt + "$" + b64encode(raw_hash)
+    return salt + "$" + _base64_str(raw_hash)
 
 
 # Add crypt as a static method of the PBKDF2 class
@@ -191,9 +199,9 @@ def crypt(word, salt=None, iterations=None):
 PBKDF2.crypt = staticmethod(crypt)
 
 
-def _make_salt():
+def _make_salt() -> str:
     """Return a 48-bit pseudorandom salt for crypt().
     This function is not suitable for generating cryptographic secrets.
     """
     binary_salt = EMPTY_bSTR.join(pack("@H", randint(0, 0xFFFF)) for _ in range(3))
-    return b64encode(binary_salt)
+    return _base64_str(binary_salt)
