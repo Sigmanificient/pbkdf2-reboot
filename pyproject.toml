@@ -18,5 +18,5 @@ no_implicit_reexport = true
 
 [tool.pytest.ini_options]
 testpaths = [
-    "tests",
+    "tests/tests.py",
 ]
