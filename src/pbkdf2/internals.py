@@ -1,9 +1,6 @@
-__version__ = "1.3"
-__all__ = ("PBKDF2", "crypt")
-
 import hmac
 from base64 import b64encode as _b64encode
-from binascii import b2a_hex as _b2a_hex
+from binascii import b2a_hex
 from hashlib import sha1
 from random import randint
 from struct import pack
@@ -125,7 +122,7 @@ class PBKDF2:
         """Read the specified number of octets. Return them as hexadecimal.
         Note that len(obj.read_hex(n)) == 2*n.
         """
-        return _b2a_hex(self.read(octets)).decode("us-ascii")
+        return b2a_hex(self.read(octets)).decode("us-ascii")
 
     def close(self):
         """Close the stream."""
