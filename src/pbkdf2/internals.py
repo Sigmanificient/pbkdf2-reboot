@@ -61,10 +61,6 @@ class PBKDF2:
         if iterations < 1:
             raise ValueError("iterations must be at least 1")
 
-        # prf must be callable
-        if not callable(self._pseudorandom):
-            raise TypeError("prf must be callable")
-
         self.__passphrase = passphrase
         self.__salt = salt
         self.__iterations = iterations
