@@ -2,7 +2,7 @@ import hmac
 
 from base64 import b64encode
 from binascii import b2a_hex
-from hashlib import sha1
+from hashlib import sha256
 from secrets import randbelow
 from string import ascii_letters, digits
 from struct import pack
@@ -45,7 +45,7 @@ class PBKDF2:
         passphrase: Union[str, bytes],
         salt: Union[str, bytes],
         iterations: int = 1000,
-        digest_module: Callable[[], Any] = sha1,
+        digest_module: Callable[[], Any] = sha256,
     ):
         self.__digest_module = digest_module
         self.__block_number = 0
@@ -78,7 +78,7 @@ class PBKDF2:
         self.__prf = self._pseudorandom
 
     def _pseudorandom(self, key, msg) -> bytes:
-        """Pseudorandom function.  e.g. HMAC-SHA1"""
+        """Pseudorandom function.  e.g. HMAC-SHA256"""
         return hmac.new(key=key, msg=msg, digestmod=self.__digest_module).digest()
 
     def read(self, bytes_):
@@ -145,12 +145,12 @@ class PBKDF2:
 def crypt(
     word: Union[str, bytes],
     salt: Optional[Union[str, bytes]] = None,
-    iterations: int = 400,
+    iterations: int = 10_000,
 ) -> str:
     """PBKDF2-based unix crypt(3) replacement.
     The number of iterations specified in the salt overrides the 'iterations'
     parameter.
-    The effective hash length is 192 bits.
+    The effective hash length is 256 bits.
     """
 
     # Generate a (pseudo-)random salt if the user hasn't provided one.
@@ -190,7 +190,7 @@ def crypt(
             raise ValueError("Illegal character %r in salt" % (ch,))
 
     salt = f"$p5k2${iterations:x}${salt}"
-    raw_hash = PBKDF2(word, salt, iterations).read(24)
+    raw_hash = PBKDF2(word, salt, iterations).read(32)
     return salt + "$" + _base64_str(raw_hash)
 
 
@@ -201,6 +201,6 @@ PBKDF2.crypt = staticmethod(crypt)
 
 
 def _make_salt() -> str:
-    """Return a 48-bit pseudorandom salt for crypt()."""
-    binary_salt = EMPTY_bSTR.join(pack("@H", randbelow(0xFFFF + 1)) for _ in range(3))
+    """Return a 96-bit pseudorandom salt for crypt()."""
+    binary_salt = EMPTY_bSTR.join(pack("@H", randbelow(0xFFFF + 1)) for _ in range(6))
     return _base64_str(binary_salt)
