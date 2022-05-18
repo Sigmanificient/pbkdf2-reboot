@@ -115,7 +115,7 @@ class PBKDF2:
         u = self.__prf(self.__passphrase, self.__salt + pack("!L", i))
         result = u
 
-        for j in range(2, 1 + self.__iterations):
+        for _ in range(2, 1 + self.__iterations):
             u = self.__prf(self.__passphrase, u)
             result = bytes(x ^ y for (x, y) in zip(result, u))
         return result
@@ -191,7 +191,7 @@ def crypt(
 
     salt = f"$p5k2${iterations:x}${salt}"
     raw_hash = PBKDF2(word, salt, iterations).read(32)
-    return salt + "$" + _base64_str(raw_hash)
+    return f"{salt}${_base64_str(raw_hash)}"
 
 
 # Add crypt as a static method of the PBKDF2 class
